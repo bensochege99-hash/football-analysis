@@ -1,0 +1,561 @@
+# Artificial Intelligence - Exercise 1
+
+Dataset: International Football Results (`results.csv`)
+
+## Step 1: Load the CSV
+
+```python
+import pandas as pd
+
+df = pd.read_csv("results.csv")
+df.head()
+```
+
+## Basic Exploration
+
+### 1. How many matches are in the dataset?
+
+```python
+df.shape[0]
+```
+
+**Answer:** `49,287`
+
+### 2. What is the earliest and latest year in the data?
+
+```python
+df["date"] = pd.to_datetime(df["date"])
+df["date"].min(), df["date"].max()
+```
+
+```python
+df["date"].dt.year.min(), df["date"].dt.year.max()
+```
+
+**Answer:** Earliest year is `1872`, latest year is `2026`.
+
+### 3. How many unique countries (teams) are there?
+
+```python
+unique_teams = pd.unique(pd.concat([df["home_team"], df["away_team"]], ignore_index=True))
+len(unique_teams)
+```
+
+**Answer:** `333`
+
+### 4. Which team appears most frequently as home team?
+
+```python
+df["home_team"].value_counts().head(1)
+```
+
+**Answer:** `Brazil` (appears `614` times as home team).
+
+## Goals Analysis
+
+Create total goals:
+
+```python
+df["total_goals"] = df["home_score"] + df["away_score"]
+```
+
+### 5. What is the average number of goals per match?
+
+```python
+df["total_goals"].mean()
+```
+
+**Answer:** `2.938` goals per match (approximately).
+
+### 6. What is the highest scoring match?
+
+```python
+max_goals = df["total_goals"].max()
+df[df["total_goals"] == max_goals][["date", "home_team", "away_team", "home_score", "away_score", "total_goals"]]
+```
+
+**Answer:** `Australia 31 - 0 American Samoa` on `2001-04-11` (total `31` goals).
+
+### 7. Are more goals scored at home or away?
+
+```python
+df["home_score"].sum(), df["away_score"].sum()
+```
+
+**Answer:** More goals are scored by home teams (`86,426`) than away teams (`58,192`).
+
+### 8. What is the most common total goals value?
+
+```python
+df["total_goals"].mode()
+```
+
+**Answer:** `2`
+
+## Match Results
+
+Create match outcome:
+
+```python
+def match_result(row):
+    if row["home_score"] > row["away_score"]:
+        return "Home Win"
+    elif row["home_score"] < row["away_score"]:
+        return "Away Win"
+    else:
+        return "Draw"
+
+df["result"] = df.apply(match_result, axis=1)
+```
+
+### 9. What percentage of matches are home wins?
+
+```python
+home_win_pct = (df["result"].value_counts()["Home Win"] / len(df)) * 100
+home_win_pct
+```
+
+**Answer:** `48.91%` (approximately).
+
+### 10. Does home advantage exist?
+
+```python
+df["result"].value_counts(normalize=True) * 100
+```
+
+**Answer:** Yes. Home wins (`48.91%`) are much higher than away wins (`28.23%`), indicating home advantage.
+
+### 11. Which country/team has the most wins historically?
+
+```python
+winners = pd.Series(pd.NA, index=df.index, dtype="object")
+winners[df["home_score"] > df["away_score"]] = df.loc[df["home_score"] > df["away_score"], "home_team"]
+winners[df["away_score"] > df["home_score"]] = df.loc[df["away_score"] > df["home_score"], "away_team"]
+
+winners.value_counts().head(10)
+```
+
+**Answer:** `Brazil` with `670` wins.
+
+## Visualization
+
+### Histogram of goals
+
+```python
+import matplotlib.pyplot as plt
+
+df["total_goals"].hist(bins=15)
+plt.title("Distribution of Goals Per Match")
+plt.xlabel("Total Goals")
+plt.ylabel("Number of Matches")
+plt.show()
+```
+
+Saved figure: `plots/goals_histogram.png`
+
+### Bar chart of match outcomes
+
+```python
+df["result"].value_counts().reindex(["Home Win", "Away Win", "Draw"]).plot(kind="bar")
+plt.title("Match Outcomes")
+plt.xlabel("Outcome")
+plt.ylabel("Number of Matches")
+plt.show()
+```
+
+Saved figure: `plots/match_outcomes_bar.png`
+
+### Top 10 teams by total wins
+
+```python
+winners.value_counts().head(10).sort_values().plot(kind="barh")
+plt.title("Top 10 Teams by Total Wins")
+plt.xlabel("Wins")
+plt.ylabel("Team")
+plt.show()
+```
+
+Saved figure: `plots/top10_total_wins.png`
+
+## Notes
+
+- This report was computed from the current `results.csv` file in this folder.
+- To regenerate results and plots, run:
+
+```bash
+python3 analysis.py
+```
+
+import pandas as pd
+import matplotlib.pyplot as plt
+
+# Step 1: Load data
+# If your results.csv is in another location, update this path.
+df = pd.read_csv("results.csv")
+
+df["date"] = pd.to_datetime(df["date"])
+
+# Basic exploration
+num_matches = df.shape[0]
+earliest_date = df["date"].min()
+latest_date = df["date"].max()
+unique_teams = pd.unique(pd.concat([df["home_team"], df["away_team"]], ignore_index=True)).size
+most_common_home_team = df["home_team"].value_counts().head(1)
+
+# Goals analysis
+df["total_goals"] = df["home_score"] + df["away_score"]
+
+avg_goals = df["total_goals"].mean()
+max_total_goals = df["total_goals"].max()
+highest_scoring_match = df.loc[
+    df["total_goals"] == max_total_goals,
+    ["date", "home_team", "away_team", "home_score", "away_score", "total_goals"],
+]
+
+home_goals_total = df["home_score"].sum()
+away_goals_total = df["away_score"].sum()
+most_common_total_goals = df["total_goals"].mode().iloc[0]
+
+# Match outcomes
+
+def match_result(row):
+    if row["home_score"] > row["away_score"]:
+        return "Home Win"
+    elif row["home_score"] < row["away_score"]:
+        return "Away Win"
+    else:
+        return "Draw"
+
+
+df["result"] = df.apply(match_result, axis=1)
+
+result_counts = df["result"].value_counts()
+home_win_percentage = result_counts["Home Win"] / num_matches * 100
+
+winners = pd.Series(pd.NA, index=df.index, dtype="object")
+winners[df["home_score"] > df["away_score"]] = df.loc[df["home_score"] > df["away_score"], "home_team"]
+winners[df["away_score"] > df["home_score"]] = df.loc[df["away_score"] > df["home_score"], "away_team"]
+
+team_total_wins = winners.dropna().value_counts()
+most_historical_wins_team = team_total_wins.index[0]
+
+# Print concise results
+print("1) Matches in dataset:", num_matches)
+print("2) Earliest date:", earliest_date.date(), "| Latest date:", latest_date.date())
+print("3) Unique teams:", unique_teams)
+print("4) Most frequent home team:", most_common_home_team.index[0], "(", int(most_common_home_team.iloc[0]), "matches)")
+print("5) Average goals per match:", round(avg_goals, 3))
+print("6) Highest scoring match:")
+print(highest_scoring_match.to_string(index=False))
+print("7) Goals scored at home vs away:", int(home_goals_total), "vs", int(away_goals_total))
+print("8) Most common total goals value:", int(most_common_total_goals))
+print("9) Home win percentage:", round(home_win_percentage, 2), "%")
+print("10) Home advantage exists:", "Yes" if result_counts["Home Win"] > result_counts["Away Win"] else "No")
+print("11) Team with most historical wins:", most_historical_wins_team, "(", int(team_total_wins.iloc[0]), "wins)")
+
+# Visualizations
+plt.figure(figsize=(8, 5))
+df["total_goals"].hist(bins=15, edgecolor="black")
+plt.title("Distribution of Goals Per Match")
+plt.xlabel("Total Goals")
+plt.ylabel("Number of Matches")
+plt.tight_layout()
+plt.savefig("plots/goals_histogram.png", dpi=150)
+plt.close()
+
+plt.figure(figsize=(7, 5))
+result_counts.reindex(["Home Win", "Away Win", "Draw"]).plot(kind="bar", color=["#4CAF50", "#F44336", "#2196F3"])
+plt.title("Match Outcomes")
+plt.xlabel("Outcome")
+plt.ylabel("Number of Matches")
+plt.xticks(rotation=0)
+plt.tight_layout()
+plt.savefig("plots/match_outcomes_bar.png", dpi=150)
+plt.close()
+
+plt.figure(figsize=(10, 6))
+team_total_wins.head(10).sort_values().plot(kind="barh", color="#FF9800")
+plt.title("Top 10 Teams by Total Wins")
+plt.xlabel("Wins")
+plt.ylabel("Team")
+plt.tight_layout()
+plt.savefig("plots/top10_total_wins.png", dpi=150)
+plt.close()
+
+{
+  "cells": [
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "# Artificial Intelligence - Exercise 1\n",
+        "\n",
+        "Dataset: International Football Results (`results.csv`)\n"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {},
+      "outputs": [],
+      "source": [
+        "import pandas as pd\n",
+        "import matplotlib.pyplot as plt\n",
+        "\n",
+        "df = pd.read_csv('results.csv')\n",
+        "df['date'] = pd.to_datetime(df['date'])\n",
+        "df.head()"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "## Basic Exploration\n"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {},
+      "outputs": [],
+      "source": [
+        "# 1) How many matches are in the dataset?\n",
+        "num_matches = df.shape[0]\n",
+        "num_matches"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {},
+      "outputs": [],
+      "source": [
+        "# 2) Earliest and latest year\n",
+        "earliest = df['date'].min()\n",
+        "latest = df['date'].max()\n",
+        "earliest, latest, earliest.year, latest.year"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {},
+      "outputs": [],
+      "source": [
+        "# 3) How many unique countries/teams are there?\n",
+        "unique_teams = pd.unique(pd.concat([df['home_team'], df['away_team']], ignore_index=True)).size\n",
+        "unique_teams"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {},
+      "outputs": [],
+      "source": [
+        "# 4) Which team appears most frequently as home team?\n",
+        "df['home_team'].value_counts().head(1)"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "## Goals Analysis\n"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {},
+      "outputs": [],
+      "source": [
+        "df['total_goals'] = df['home_score'] + df['away_score']\n",
+        "df[['home_score','away_score','total_goals']].head()"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {},
+      "outputs": [],
+      "source": [
+        "# 5) Average goals per match\n",
+        "df['total_goals'].mean()"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {},
+      "outputs": [],
+      "source": [
+        "# 6) Highest scoring match\n",
+        "max_goals = df['total_goals'].max()\n",
+        "df[df['total_goals'] == max_goals][['date','home_team','away_team','home_score','away_score','total_goals']]"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {},
+      "outputs": [],
+      "source": [
+        "# 7) More goals at home or away?\n",
+        "df['home_score'].sum(), df['away_score'].sum()"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {},
+      "outputs": [],
+      "source": [
+        "# 8) Most common total goals value\n",
+        "df['total_goals'].mode()"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "## Match Results\n"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {},
+      "outputs": [],
+      "source": [
+        "def match_result(row):\n",
+        "    if row['home_score'] > row['away_score']:\n",
+        "        return 'Home Win'\n",
+        "    elif row['home_score'] < row['away_score']:\n",
+        "        return 'Away Win'\n",
+        "    else:\n",
+        "        return 'Draw'\n",
+        "\n",
+        "df['result'] = df.apply(match_result, axis=1)\n",
+        "df['result'].value_counts()"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {},
+      "outputs": [],
+      "source": [
+        "# 9) Percentage of home wins\n",
+        "home_win_pct = (df['result'].value_counts()['Home Win'] / len(df)) * 100\n",
+        "home_win_pct"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {},
+      "outputs": [],
+      "source": [
+        "# 10) Does home advantage exist?\n",
+        "df['result'].value_counts(normalize=True) * 100"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {},
+      "outputs": [],
+      "source": [
+        "# 11) Which team has the most wins historically?\n",
+        "winners = pd.Series(pd.NA, index=df.index, dtype='object')\n",
+        "winners[df['home_score'] > df['away_score']] = df.loc[df['home_score'] > df['away_score'], 'home_team']\n",
+        "winners[df['away_score'] > df['home_score']] = df.loc[df['away_score'] > df['home_score'], 'away_team']\n",
+        "winners.value_counts().head(10)"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "## Visualizations\n"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {},
+      "outputs": [],
+      "source": [
+        "# Histogram of goals\n",
+        "df['total_goals'].hist(bins=15, edgecolor='black')\n",
+        "plt.title('Distribution of Goals Per Match')\n",
+        "plt.xlabel('Total Goals')\n",
+        "plt.ylabel('Number of Matches')\n",
+        "plt.show()"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {},
+      "outputs": [],
+      "source": [
+        "# Bar chart of match outcomes\n",
+        "df['result'].value_counts().reindex(['Home Win', 'Away Win', 'Draw']).plot(kind='bar')\n",
+        "plt.title('Match Outcomes')\n",
+        "plt.xlabel('Outcome')\n",
+        "plt.ylabel('Number of Matches')\n",
+        "plt.xticks(rotation=0)\n",
+        "plt.show()"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {},
+      "outputs": [],
+      "source": [
+        "# Top 10 teams by total wins\n",
+        "winners.value_counts().head(10).sort_values().plot(kind='barh')\n",
+        "plt.title('Top 10 Teams by Total Wins')\n",
+        "plt.xlabel('Wins')\n",
+        "plt.ylabel('Team')\n",
+        "plt.show()"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "## Short Written Answers\n",
+        "\n",
+        "1. Matches: **49,287**\\n",
+        "2. Earliest year: **1872**, latest year: **2026**\\n",
+        "3. Unique teams: **333**\\n",
+        "4. Most frequent home team: **Brazil (614)**\\n",
+        "5. Average goals per match: **2.938**\\n",
+        "6. Highest scoring match: **Australia 31-0 American Samoa (2001-04-11)**\\n",
+        "7. More goals scored at: **Home (86,426 vs 58,192)**\\n",
+        "8. Most common total goals value: **2**\\n",
+        "9. Home win percentage: **48.91%**\\n",
+        "10. Home advantage exists: **Yes**\\n",
+        "11. Most historical wins: **Brazil (670 wins)**\n"
+      ]
+    }
+  ],
+  "metadata": {
+    "kernelspec": {
+      "display_name": "Python 3",
+      "language": "python",
+      "name": "python3"
+    },
+    "language_info": {
+      "name": "python",
+      "version": "3"
+    }
+  },
+  "nbformat": 4,
+  "nbformat_minor": 5
+}
